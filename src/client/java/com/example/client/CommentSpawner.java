@@ -5,7 +5,8 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.decoration.ArmorStandEntity;
+import net.minecraft.entity.decoration.DisplayEntity;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
@@ -22,11 +23,11 @@ public class CommentSpawner {
 	private static int nextFakeId = -1_000_000;
 
 	private static class Active {
-		final ArmorStandEntity stand;
+		final Entity entity;
 		int ticksLeft = LIFETIME_TICKS;
 
-		Active(ArmorStandEntity stand) {
-			this.stand = stand;
+		Active(Entity entity) {
+			this.entity = entity;
 		}
 	}
 
@@ -44,18 +45,32 @@ public class CommentSpawner {
 
 		double x = player.getX() + (RANDOM.nextDouble() * 2 - 1) * RADIUS;
 		double z = player.getZ() + (RANDOM.nextDouble() * 2 - 1) * RADIUS;
-		double y = player.getY() + RANDOM.nextDouble() * 1.5;
+		double y = player.getY() + 0.5 + RANDOM.nextDouble() * 2.0;
 
-		ArmorStandEntity stand = new ArmorStandEntity(EntityType.ARMOR_STAND, world);
-		stand.setId(nextFakeId--);
-		stand.setPosition(x, y, z);
-		stand.setInvisible(true);
-		stand.setNoGravity(true);
-		stand.setCustomName(Text.literal(text));
-		stand.setCustomNameVisible(true);
+		// случайный цвет рамки (RGB) с небольшой прозрачностью
+		int r = RANDOM.nextInt(256);
+		int g = RANDOM.nextInt(256);
+		int b = RANDOM.nextInt(256);
+		int background = (0xCC << 24) | (r << 16) | (g << 8) | b;
 
-		world.addEntity(stand);
-		ACTIVE.add(new Active(stand));
+		// цвет текста: чёрный на светлом фоне, белый на тёмном
+		double luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+		int textColor = luminance > 140 ? 0x000000 : 0xFFFFFF;
+
+		// пробелы и пустые строки вокруг текста делают рамку больше
+		Text label = Text.literal(" \n   " + text + "   \n ")
+			.setStyle(Style.EMPTY.withColor(textColor));
+
+		DisplayEntity.TextDisplayEntity display =
+			new DisplayEntity.TextDisplayEntity(EntityType.TEXT_DISPLAY, world);
+		display.setId(nextFakeId--);
+		display.setPosition(x, y, z);
+		display.setBillboardMode(DisplayEntity.BillboardMode.CENTER);
+		display.setText(label);
+		display.setBackground(background);
+
+		world.addEntity(display);
+		ACTIVE.add(new Active(display));
 	}
 
 	public static void tick() {
@@ -72,7 +87,7 @@ public class CommentSpawner {
 			Active active = it.next();
 			active.ticksLeft--;
 			if (active.ticksLeft <= 0) {
-				world.removeEntity(active.stand.getId(), Entity.RemovalReason.DISCARDED);
+				world.removeEntity(active.entity.getId(), Entity.RemovalReason.DISCARDED);
 				it.remove();
 			}
 		}
