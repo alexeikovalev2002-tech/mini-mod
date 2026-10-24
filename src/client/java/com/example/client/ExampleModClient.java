@@ -11,6 +11,8 @@ public class ExampleModClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> CommentSpawner.tick());
 
+		CommentServer.start();
+
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
 			dispatcher.register(ClientCommandManager.literal("tt")
 				.then(ClientCommandManager.argument("text", StringArgumentType.greedyString())
